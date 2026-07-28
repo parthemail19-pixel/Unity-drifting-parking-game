@@ -1,3 +1,4 @@
 # Unity-drifting-parking-game
 A simple unity game where you have to try and park your drift car in the middle, sort of like musical chairs.
-I will import custom car models try to add some drifting logic so teh cars are soemwhat hard to steer, the game is made foir mobile but can be played on any device
+I will import custom car models try to add some drifting logic so the cars are somewhat hard to steer, the game is made for mobile but can be played on any device,
+it is made in universal 3d with an environment, and there will be no collision the map will include obstacles and detection when you are in a parking spot.
