@@ -1,43 +1,37 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class CarController : MonoBehaviour
-{
-    public float motorForce = 2500f;  // acceleration power
-    public float turnSpeed = 120f;    // steering speed
+public class CarController : MonoBehaviour {
 
-    [Header("Steering wheels (drag the FRONT wheels here)")]
-    public Transform frontLeftWheel;   // your front-left wheel (e.g. LF)
-    public Transform frontRightWheel;  // your front-right wheel (e.g. RF)
-    public float maxSteerAngle = 30f;  // how far the front wheels visually turn
+    
+    public float MoveSpeed = 50;
+    public float MaxSpeed = 15;
+    public float Drag = 0.98f;
+    public float SteerAngle = 20;
+    public float Traction = 1;
 
-    Rigidbody rb;
-    Quaternion flDefault, frDefault;
+   
+    private Vector3 MoveForce;
 
-    void Start()
-    {
-        rb = GetComponent<Rigidbody>();
-        if (frontLeftWheel)  flDefault = frontLeftWheel.localRotation;
-        if (frontRightWheel) frDefault = frontRightWheel.localRotation;
-    }
+   
+    void Update() {
 
-    void Update()
-    {
-        // Steer the front wheels to match your turn input
-        float steer = Input.GetAxis("Horizontal") * maxSteerAngle;
-        if (frontLeftWheel)  frontLeftWheel.localRotation  = flDefault * Quaternion.Euler(0f, steer, 0f);
-        if (frontRightWheel) frontRightWheel.localRotation = frDefault * Quaternion.Euler(0f, steer, 0f);
-    }
+        
+        MoveForce += transform.forward * MoveSpeed * Input.GetAxis("Vertical") * Time.deltaTime;
+        transform.position += MoveForce * Time.deltaTime;
 
-    void FixedUpdate()
-    {
-        float move = Input.GetAxis("Vertical");
-        float turn = Input.GetAxis("Horizontal");
+       
+        float steerInput = Input.GetAxis("Horizontal");
+        transform.Rotate(Vector3.up * steerInput * MoveForce.magnitude * SteerAngle * Time.deltaTime);
 
-        Vector3 flat = transform.forward;
-        flat.y = 0f;
-        flat.Normalize();
-        rb.AddForce(flat * move * motorForce);
+       
+        MoveForce *= Drag;
+        MoveForce = Vector3.ClampMagnitude(MoveForce, MaxSpeed);
 
-        transform.Rotate(0f, turn * turnSpeed * Time.fixedDeltaTime, 0f);
+        
+        Debug.DrawRay(transform.position, MoveForce.normalized * 3);
+        Debug.DrawRay(transform.position, transform.forward * 3, Color.blue);
+        MoveForce = Vector3.Lerp(MoveForce.normalized, transform.forward, Traction * Time.deltaTime) * MoveForce.magnitude;
     }
 }

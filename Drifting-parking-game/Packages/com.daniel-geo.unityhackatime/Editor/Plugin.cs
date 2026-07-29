@@ -291,6 +291,12 @@ namespace WakaTime {
       OnEditorActivity();
     }
 
+    // Editing Visual Scripting graphs, inspector values, or anything undoable.
+    static UndoPropertyModification[] OnPropertyModified(UndoPropertyModification[] mods) {
+      OnEditorActivity();
+      return mods;
+    }
+
     static void LinkCallbacks(bool clean = false) {
       if (clean) {
         EditorApplication.playModeStateChanged -= OnPlaymodeStateChanged;
@@ -308,6 +314,7 @@ namespace WakaTime {
         SceneView.duringSceneGui -= OnSceneViewGui;
         EditorApplication.projectChanged -= OnProjectChanged;
         ObjectChangeEvents.changesPublished -= OnObjectChanges;
+        Undo.postprocessModifications -= OnPropertyModified;
       }
 
       EditorApplication.playModeStateChanged += OnPlaymodeStateChanged;
@@ -325,6 +332,7 @@ namespace WakaTime {
       SceneView.duringSceneGui += OnSceneViewGui;
       EditorApplication.projectChanged += OnProjectChanged;
       ObjectChangeEvents.changesPublished += OnObjectChanges;
+      Undo.postprocessModifications += OnPropertyModified;
     }
 
     /// <summary>
