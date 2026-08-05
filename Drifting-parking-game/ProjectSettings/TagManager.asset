@@ -6,11 +6,12 @@ TagManager:
   tags:
   - Prometheus
   - KillFloor
+  - Spot
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Car
   - Water
   - UI
   - 

@@ -16,7 +16,7 @@ using UnityEngine.UI;
 
 public class PrometeoCarController : MonoBehaviour
 {
-
+      public bool isAIControlled = false;
     //CAR SETUP
 
       [Space(20)]
@@ -325,7 +325,7 @@ public class PrometeoCarController : MonoBehaviour
           ResetSteeringAngle();
         }
 
-      }else{
+      }else if(!isAIControlled){
 
         if(Input.GetKey(KeyCode.W)){
           CancelInvoke("DecelerateCar");
@@ -446,7 +446,14 @@ public class PrometeoCarController : MonoBehaviour
 
     //The following method takes the front car wheels to their default position (rotation = 0). The speed of this movement will depend
     // on the steeringSpeed variable.
-    public void ResetSteeringAngle(){
+      public void SetSteer(float amount) {
+        steeringAxis = Mathf.Clamp(amount, -1f, 1f);
+        var steeringAngle = steeringAxis * maxSteeringAngle;
+        frontLeftCollider.steerAngle = Mathf.Lerp(frontLeftCollider.steerAngle, steeringAngle, steeringSpeed);
+        frontRightCollider.steerAngle = Mathf.Lerp(frontRightCollider.steerAngle, steeringAngle, steeringSpeed);
+    }
+
+      public void ResetSteeringAngle(){
       if(steeringAxis < 0f){
         steeringAxis = steeringAxis + (Time.deltaTime * 10f * steeringSpeed);
       }else if(steeringAxis > 0f){
