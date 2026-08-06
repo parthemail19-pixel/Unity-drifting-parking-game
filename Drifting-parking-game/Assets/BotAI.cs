@@ -3,6 +3,7 @@ using Unity.VisualScripting;
 
 public class BotAI : MonoBehaviour
 {
+    static bool markersMade = false;
     float progress;
     float myRadius;
     bool parked = false;
@@ -13,24 +14,48 @@ public class BotAI : MonoBehaviour
     PrometeoCarController car;
     Rigidbody rb;
     public Transform target;
-
-    void Start()
+        void Start()
     {
-        laneOffset = Random.Range(-0.5f, 0.5f);
         car = GetComponent<PrometeoCarController>();
         rb = GetComponent<Rigidbody>();
         car.isAIControlled = true;
-        myRadius = Vector3.Distance(transform.position, platform.transform.position);
-        Vector3 startToCenter = platform.transform.position - transform.position;
-        startToCenter.y = 0;
-        transform.rotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, startToCenter));
-        rb.linearVelocity = transform.forward * 8f;
+        laneOffset = Random.Range(-2f, 2f);
+        car.maxSpeed = Random.Range(30, 45);
+
+       
+        float bestWp = Mathf.Infinity;
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            float d = Vector3.Distance(transform.position, waypoints[i].position);
+            if (d < bestWp) { bestWp = d; progress = i; }
+        }
+
+   
+        Vector3 startDir = Spline(progress + 1f) - transform.position;
+        startDir.y = 0;
+        transform.rotation = Quaternion.LookRotation(startDir);
+        rb.linearVelocity = startDir.normalized * 8f;
+                if (!markersMade)
+        {
+            markersMade = true;
+            for (float t = 0; t < waypoints.Length; t += 0.25f)
+            {
+                GameObject m = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                m.transform.position = Spline(t);
+                m.transform.localScale = Vector3.one * 0.5f;
+                Destroy(m.GetComponent<Collider>());
+            }
+        }
     }
 
     void Update()
 {
     
     if (parked) return;
+
+    for (float t = 0; t < waypoints.Length; t += 0.2f)
+        Debug.DrawLine(Spline(t), Spline(t + 0.2f), Color.green);
+
     Transform aim;
     
 
@@ -42,23 +67,30 @@ public class BotAI : MonoBehaviour
         aim = target;
 
     }
-    else
+        else
     {
-      Vector3 aimPoint = Spline(progress + 1f);
-      Vector3 tangent = (Spline(progress + 1.2f) - Spline(progress + 0.8f)).normalized;
-      Vector3 perp = Vector3.Cross(Vector3.up, tangent);
-      Vector3 carrot = aimPoint + perp * laneOffset;
-      Vector3 dir = carrot - transform.position;
-      dir.y = 0;
-      float side = Vector3.Dot(transform.right, dir.normalized);
-      car.SetSteer(Mathf.Clamp(side * 2f, -1f, 1f));
-      car.GoForward();
+       int guard = 0;
+       float bestT = progress;
+       float bestD = Mathf.Infinity;
+       for (float t = progress; t < progress + 3f; t += 0.1f)
+       {
+           float d = Vector3.Distance(transform.position, Spline(t));
+           if (d < bestD) { bestD = d; bestT = t; }
+       }
+       progress = bestT;
+       if (progress >= waypoints.Length) progress -= waypoints.Length;
 
-      if(Vector3.Distance(transform.position, Spline(progress)) < 6f)
-      
-        progress += 0.1f;
-        if (progress >= waypoints.Length) progress -= waypoints.Length;
-        return;
+       Vector3 tangent = (Spline(progress + 0.3f) - Spline(progress)).normalized;
+       Vector3 perp = Vector3.Cross(Vector3.up, tangent);
+       Vector3 carrot = Spline(progress + 0.8f) + perp * laneOffset;
+
+       Vector3 dir = carrot - transform.position;
+       dir.y = 0;
+       float side = Vector3.Dot(transform.right, dir.normalized);
+       car.SetSteer(Mathf.Clamp(side * 3f, -1f, 1f));
+       if (Mathf.Abs(side) > 0.3f) car.Brakes();
+       else car.GoForward();
+       return;
     }
 
     if (aim == null) return;
@@ -105,12 +137,30 @@ public class BotAI : MonoBehaviour
         }   
     return best;
     }
-    Vector3 Spline(float t)
+
+            void OnDrawGizmos()
+    {
+        if (waypoints == null || waypoints.Length < 4) return;
+
+        Gizmos.color = Color.red;
+        for (int i = 0; i < waypoints.Length; i++)
+            if (waypoints[i] != null) Gizmos.DrawSphere(waypoints[i].position, 1f);
+
+        Gizmos.color = Color.green;
+        int n = waypoints.Length;
+        Vector3 prev = Spline(0f);
+        for (float t = 0.1f; t <= n; t += 0.1f)
+        {
+            Vector3 p = Spline(t);
+            Gizmos.DrawLine(prev, p);
+            prev = p;
+        }
+    }    Vector3 Spline(float t)
         {
             int n = waypoints.Length;
             int i = Mathf.FloorToInt(t);
             float f = t - i;
-            Vector3 p0 = waypoints[(i - 1 + n % n)].position;
+            Vector3 p0 = waypoints[(i - 1 + n) % n].position;
             Vector3 p1 = waypoints[i % n].position;
             Vector3 p2 = waypoints[(i + 1) % n].position;
             Vector3 p3 = waypoints[(i + 2) % n].position;
