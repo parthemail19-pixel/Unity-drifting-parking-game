@@ -3,7 +3,7 @@ using Unity.VisualScripting;
 
 public class BotAI : MonoBehaviour
 {
-    static bool markersMade = false;
+    float stuckTimer;
     float progress;
     float myRadius;
     bool parked = false;
@@ -19,7 +19,7 @@ public class BotAI : MonoBehaviour
         car = GetComponent<PrometeoCarController>();
         rb = GetComponent<Rigidbody>();
         car.isAIControlled = true;
-        laneOffset = Random.Range(-2f, 2f);
+        laneOffset = Random.Range(-0.5f, 0.5f);
         car.maxSpeed = Random.Range(30, 45);
 
        
@@ -35,17 +35,7 @@ public class BotAI : MonoBehaviour
         startDir.y = 0;
         transform.rotation = Quaternion.LookRotation(startDir);
         rb.linearVelocity = startDir.normalized * 8f;
-                if (!markersMade)
-        {
-            markersMade = true;
-            for (float t = 0; t < waypoints.Length; t += 0.25f)
-            {
-                GameObject m = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                m.transform.position = Spline(t);
-                m.transform.localScale = Vector3.one * 0.5f;
-                Destroy(m.GetComponent<Collider>());
-            }
-        }
+               
     }
 
     void Update()
@@ -79,16 +69,44 @@ public class BotAI : MonoBehaviour
        }
        progress = bestT;
        if (progress >= waypoints.Length) progress -= waypoints.Length;
+       if (rb.linearVelocity.magnitude < 1f) stuckTimer += Time.deltaTime;
+       else stuckTimer = 0f;
+       Vector3 offLine = Spline(progress) - transform.position;
+       offLine.y = 0;
+       if (stuckTimer > 2f || transform.position.y < Spline(progress).y - 3f || offLine.magnitude > 6f) 
+            {
+                Vector3 rp = Spline(progress) + Vector3.up * 20f;
+                RaycastHit rhit;
+                if (Physics.Raycast(rp, Vector3.down, out rhit, 100f, ~LayerMask.GetMask("Cars")))
+                transform.position = rhit.point + Vector3.up * 0.5f;
+                else transform.position = Spline(progress) + Vector3.up;
+                {
+                    transform.rotation = Quaternion.LookRotation(Spline(progress + 0.8f) - Spline(progress));
+                    rb.angularVelocity = Vector3.zero;
+                    rb.linearVelocity = transform.forward * 6f;
+                    stuckTimer = 0f;
+                }
+            }
+        
 
+        Vector3 ahead = transform.position + transform.forward * 4f + Vector3.up * 2f;
+        if (!Physics.Raycast(ahead, Vector3.down, 6f, ~LayerMask.GetMask("Cars")))
+       {
+           Vector3 back = Spline(progress) - transform.position;
+           back.y = 0;
+           car.SetSteer(Mathf.Clamp(Vector3.Dot(transform.right, back.normalized) * 5f, -1f, 1f));
+           car.Brakes();
+           return;
+       }
        Vector3 tangent = (Spline(progress + 0.3f) - Spline(progress)).normalized;
        Vector3 perp = Vector3.Cross(Vector3.up, tangent);
-       Vector3 carrot = Spline(progress + 0.8f) + perp * laneOffset;
+       Vector3 carrot = Spline(progress + 0.4f) + perp * laneOffset;
 
        Vector3 dir = carrot - transform.position;
        dir.y = 0;
        float side = Vector3.Dot(transform.right, dir.normalized);
-       car.SetSteer(Mathf.Clamp(side * 3f, -1f, 1f));
-       if (Mathf.Abs(side) > 0.3f) car.Brakes();
+       car.SetSteer(Mathf.Clamp(side * 5f, -1f, 1f));
+       if (Mathf.Abs(side) > 0.4f && rb.linearVelocity.magnitude > 8f) car.Brakes();
        else car.GoForward();
        return;
     }
@@ -124,6 +142,17 @@ public class BotAI : MonoBehaviour
     }
 }
 
+        public void NewRound()
+    {
+        parked = false;
+        target = null;
+        float best = Mathf.Infinity;
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            float d = Vector3.Distance(transform.position, waypoints[i].position);
+            if (d < best) { best = d; progress = i; }
+        }
+    }
     Transform FindNearestFreeSpot()
     {
         Transform best = null;
@@ -155,6 +184,7 @@ public class BotAI : MonoBehaviour
             Gizmos.DrawLine(prev, p);
             prev = p;
         }
+        
     }    Vector3 Spline(float t)
         {
             int n = waypoints.Length;
